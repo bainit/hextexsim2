@@ -1,0 +1,54 @@
+#ifndef UTIL_H
+#define UTIL_H
+
+#include <string>
+#include <vector>
+
+#include <gsl/gsl_matrix.h>
+#include "vpsc_model_main.h"
+
+using namespace std;
+
+#define BUNGE_NOTATION 1
+
+void print_matrix(gsl_matrix const * matrix);
+
+double rad2deg(double rad);
+double deg2rad(double deg);
+
+void matmul(gsl_matrix const *lm, gsl_matrix const *rm, gsl_matrix *res);
+
+//Rotation matrix
+Matrix calculate_rotation_matrix(double phi1, double phi, double phi2, int notation);
+Matrix calculate_rotation_matrix_bunge(double phi1, double phi, double phi2);
+
+//Returns new pointer to inverse 3x3 matrix
+gsl_matrix* get_inverse_matrix(gsl_matrix* mat);
+
+//Returns lenght of a vector represented by gsl_matrix 1,3
+double get_vector_length(gsl_matrix* vect);
+
+//Normalization in place of a vector represented by gsl_matrix 1,3 
+void norm_vector(gsl_matrix* vect);
+
+//Transpose direction from 3,1 to 1,3
+gsl_matrix* transpose(gsl_matrix* vect);
+
+//Compatibile notation: x||x y||y* z||z
+gsl_matrix* get_transformation_matrix(double ctoa);
+
+//Transformation (hkil) Miller-Bravais to (uvw) Bravais, ortonormal 
+//x||x y||y* z||z
+gsl_matrix* hkil2uvw_plane(double h, double k, double i, double l, gsl_matrix* inv_trans_matrix);
+gsl_matrix* hkil2uvw_dir(double h, double k, double i, double l, gsl_matrix* inv_trans_matrix);
+
+//Matrix& operator*(Matrix& lm, Matrix& rm);
+
+gsl_matrix* matptr(gsl_matrix_view &view);
+
+vector<Grain*> load_grains(string pathname);
+void export_grains(const vector<Grain*> grains, const string pathname);
+
+vector<SlipSystem_uptr> load_slip_systems(string filepath);
+
+#endif //UTIL_H

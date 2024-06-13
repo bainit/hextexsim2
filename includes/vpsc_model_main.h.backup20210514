@@ -1,0 +1,152 @@
+#ifndef VPSC_MODEL_MAIN_H
+#define VPSC_MODEL_MAIN_H
+
+#include <string>
+#include <memory>
+
+#include <gsl/gsl_matrix.h>
+
+using namespace std;
+
+#define FCC_SLIP_SYSTEMS "FCC"
+#define HCP_SLIP_SYSTEMS "HCP" 
+
+class Settings {
+
+	private:
+		Settings(double ds, int md, double e, double sr, double def[9]);
+		
+		static Settings* instance;		
+
+		double def_step;
+		int max_def;
+		double epsilon;
+		double strain_rate;		
+
+		//identity matrix
+		gsl_matrix* I;
+
+		//strain tensor
+		gsl_matrix* def_mat;
+
+		//Constraints
+		//gsl_matrix* K1;
+		//gsl_matrix* K2;
+
+	public:
+		static void create_settings(double ds, int md, double e, double sr, double def[9]);
+		static void load_and_create_settings(string pathname);
+		static Settings* get_instance();
+		static Settings& get_ref_inst();
+
+		double get_def_step() const;
+		int get_max_def() const;
+		double get_epsilon() const;
+		double get_strain_rate() const;
+
+		gsl_matrix* const get_identity() const;
+
+		gsl_matrix* get_def();
+
+		~Settings();
+
+};
+
+class Grain {
+
+	public:
+		Grain(double p1, double p, double p2, double weight);
+		
+		gsl_matrix* get_rotation_matrix() const;
+		void print() const;
+		double get_phi1() const {return phi1;};
+		double get_phi() const {return phi;};
+		double get_phi2() const {return phi2;};
+		double get_weight() const {return weight;};
+
+		~Grain();
+
+	private:
+		//Euler angles in radians
+		double phi1, phi, phi2, weight;
+		gsl_matrix* rotation_matrix;
+	
+};
+
+class SlipSystem {
+
+	public:
+		//{hkl}<uvw>, {slip plane}<slip direction>
+		SlipSystem(double h, double k, double l, double i, double v, double w, double t, double mm, string label);
+		string get_label() const {return label;};
+
+		gsl_matrix* get_slip_plane() const;
+		gsl_matrix* get_slip_dir() const;
+
+		gsl_matrix* get_def_mat() const;
+		gsl_matrix* get_sym() const;
+		gsl_matrix* get_asym() const;
+
+		double get_tau_0() const {return tau_0;};
+		double get_m() const {return m;};
+
+		~SlipSystem();
+
+	private:
+		//normalized 
+		//spip_plane (1,3)
+		gsl_matrix* slip_plane;
+		//slip_dir (3,1)
+		gsl_matrix* slip_direction;
+
+		string label;
+
+		gsl_matrix* deformation_matrix;
+
+		//Symetry part of deformation matrix
+		gsl_matrix* symetry_def_mat;
+
+		//Antysymetry part of deformation matrix
+		gsl_matrix* asymetry_def_mat;
+
+		//critical resolved shear stress
+		double tau_0;
+
+		//viscoplastic parameter
+		double m;
+};
+
+typedef unique_ptr<SlipSystem> SlipSystem_uptr;
+
+//gsl_matrix wraper
+class Matrix {
+
+	public:
+		Matrix();
+		Matrix(initializer_list<double> d);
+		Matrix(gsl_matrix* m);
+
+		double m11() const;
+		double m12() const;
+		double m13() const;
+		double m21() const;
+		double m22() const;
+		double m23() const;
+		double m31() const;
+		double m32() const;
+		double m33() const;
+
+		gsl_matrix* get_matrix() const;
+		void print() const;
+
+		Matrix&& operator*(Matrix& m);
+
+		~Matrix();
+
+
+	private:
+		gsl_matrix* matrix;
+
+};
+
+#endif //VPSC_MODEL_MAIN_H
