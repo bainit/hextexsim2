@@ -1,0 +1,297 @@
+#include <cstdio>
+#include <cmath>
+#include <vector>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <stdexcept>
+
+#include <gsl/gsl_matrix.h>
+#include <gsl/gsl_blas.h>
+#include <gsl/gsl_linalg.h>
+
+#include "includes/vpsc_model_main.h"
+#include "includes/util.h"
+
+using namespace std;
+
+void print_matrix(gsl_matrix const * matrix) {
+
+	for(int i=0;i<matrix->size1;i++) {
+		for(int j=0;j<matrix->size2;j++) {
+			printf("%.2f ",gsl_matrix_get(matrix,i,j));
+		}
+		printf("\n");
+	}
+
+}
+
+double rad2deg(double rad) {
+
+	return rad*180/M_PI;
+
+}
+
+double deg2rad(double deg) {
+
+	return deg*M_PI/180;	
+
+}
+
+void matmul(gsl_matrix const *lm, gsl_matrix const *rm, gsl_matrix *res) {
+	gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, lm,rm, 0.0, res);
+}
+
+gsl_matrix* matptr(gsl_matrix_view &view) {
+
+	return &(view.matrix);
+
+}
+
+gsl_matrix* calculate_rotation_matrix(double phi1, double phi, double phi2, int notation) {
+
+	if(notation == BUNGE_NOTATION) {
+		
+        	gsl_matrix *rm = gsl_matrix_alloc(3,3);
+
+        	double Z1[9] = {cos(phi1),sin(phi1),0,-sin(phi1),cos(phi1),0,0,0,1};
+        	double X[9] = {1,0,0,0,cos(phi),sin(phi),0,-sin(phi),cos(phi)};
+        	double Z2[9] = {cos(phi2), sin(phi2),0,-sin(phi2), cos(phi2),0,0,0,1};
+
+        	gsl_matrix_view mat_Z1 = gsl_matrix_view_array(Z1,3,3);
+        	gsl_matrix_view mat_X = gsl_matrix_view_array(X,3,3);
+        	gsl_matrix_view mat_Z2 = gsl_matrix_view_array(Z2,3,3);
+
+        	gsl_matrix *tmp = gsl_matrix_alloc(3,3);
+
+        	matmul(matptr(mat_Z1),matptr(mat_X),tmp);
+        	matmul(tmp,matptr(mat_Z2),rm);
+        	gsl_matrix_free(tmp);
+
+		return rm;
+
+	}
+
+	throw runtime_error("calculate_rotation_matrix::Notation not implemented");
+
+}
+
+gsl_matrix* calculate_rotation_matrix_bunge(double phi1, double phi, double phi2) {
+
+	return calculate_rotation_matrix(phi1,phi,phi2,BUNGE_NOTATION);
+
+}
+
+//Returns new pointer to inverse 3x3 matrix
+gsl_matrix* get_inverse_matrix(gsl_matrix* mat) {
+
+	int s;
+	gsl_matrix* invmat = gsl_matrix_alloc(3,3);
+	gsl_permutation* p = gsl_permutation_alloc (3);
+
+	gsl_linalg_LU_decomp (mat, p, &s);    
+	gsl_linalg_LU_invert (mat, p, invmat); 	
+
+
+	gsl_permutation_free(p);
+
+	return invmat;
+
+}
+
+double get_vector_length(gsl_matrix* v) {
+
+	if(v->size1!=1){
+		throw runtime_error("get_vector_length: matrix has wrong size1");
+	}	
+	if(v->size2!=3) {
+		throw runtime_error("get_vector_length: matrix has wrong size2");
+	}
+
+	double sum = 0;		
+	double val = 0; 
+
+	for(int i=0;i<v->size2;i++) {
+
+		val = gsl_matrix_get(v,0,i);	
+		sum = sum+val*val;
+	}
+
+	return sqrt(sum);
+
+}
+
+void norm_vector(gsl_matrix* v) {
+
+	//Checking sizes already in get_vector_length
+
+	double len = get_vector_length(v);
+
+	if(len==0) {
+		throw runtime_error("norm_vector: vector length=0");
+	}
+
+	double a=0;
+	for(int i=0;i<v->size2;i++) {
+		a = gsl_matrix_get(v,0,i);
+		gsl_matrix_set(v,0,i,a/len);
+	}
+
+}
+
+gsl_matrix* transpose(gsl_matrix* v) {
+
+	if(v->size1!=3) {
+		throw runtime_error("transpose: wrong vector size1");
+	}
+
+	if(v->size2!=1) {
+		throw runtime_error("transpose: wrong vector size2");
+	}
+
+	gsl_matrix* t = gsl_matrix_alloc(1,3);
+
+	for(int i=0;i<t->size2;i++) {
+		gsl_matrix_set(t,0,i,gsl_matrix_get(v,i,0));
+	}
+
+	return t;
+		
+}
+
+//Compatibile notation: x||x y||y* z||z
+gsl_matrix* get_transformation_matrix(double ctoa) {
+	
+	double trans[9] = {1,-0.5,0, 0,0.86602540378,0, 0,0,ctoa};
+	gsl_matrix_view trans_mat_view = gsl_matrix_view_array(trans,3,3);
+	gsl_matrix* trans_matrix = gsl_matrix_alloc(3,3);
+	gsl_matrix_memcpy(trans_matrix, matptr(trans_mat_view));
+
+	return trans_matrix;
+
+	
+
+}
+
+gsl_matrix* hkil2uvw_plane(double h, double k, double i, double l, gsl_matrix* inv_trans_matrix) {
+
+	double p[3] = {h,k,l};
+	gsl_matrix_view pp = gsl_matrix_view_array(p,1,3);
+	
+	gsl_matrix* uvwplane = gsl_matrix_alloc(1,3);
+
+	matmul(&pp.matrix,inv_trans_matrix,uvwplane);
+
+	norm_vector(uvwplane);
+
+	return uvwplane;
+
+}
+
+gsl_matrix* hkil2uvw_dir(double h, double k, double i, double l, gsl_matrix* inv_trans_matrix) {
+
+	double p[3] = {h-i,k-i,l};
+	gsl_matrix_view pp = gsl_matrix_view_array(p,3,1);
+	
+	gsl_matrix* t = gsl_matrix_alloc(3,1);
+
+	matmul(inv_trans_matrix,&pp.matrix,t);
+	
+	gsl_matrix* uvwdir = transpose(t);	
+
+	norm_vector(uvwdir);
+
+	gsl_matrix_free(t);
+
+	return uvwdir;
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+vector<Grain*> load_grains(string pathname) {
+
+	printf("Loading grains from: %s\n", pathname.c_str());
+	vector<Grain*> grains;
+
+   	ifstream input_file;
+
+        input_file.open(pathname);
+
+	string line;
+        if(!input_file.is_open()) {
+		printf("Error during opening file: %s\n", pathname.c_str());
+  		exit(-1);
+	}
+
+	while(getline(input_file,line)) {
+     		double p1,p,p2;
+		istringstream input_data(line);
+		input_data>>p1;
+		input_data>>p;
+		input_data>>p2;
+
+		grains.push_back(new Grain(p1,p,p2));
+	}
+
+	return grains;
+
+}
+
+vector<SlipSystem*> load_slip_systems(string pathname) {
+
+	printf("Loading slip systems from: %s\n", pathname.c_str());
+
+	vector<SlipSystem*> slipsystems;
+
+   	ifstream input_file;
+
+        input_file.open(pathname);
+
+        if(!input_file.is_open()) {
+		printf("Error during opening file: %s\n", pathname.c_str());
+  		exit(-1);
+	}
+
+	string line;
+
+	while(getline(input_file,line)) {
+     		double u,v,w,h,k,l,t,m;
+		string n;
+
+		istringstream input_data(line);
+		input_data>>u;
+		input_data>>v;
+		input_data>>w;
+	
+		input_data>>h;
+		input_data>>k;
+		input_data>>l;
+
+		input_data>>t;
+		input_data>>m;
+
+		input_data>>n;
+
+		slipsystems.push_back(new SlipSystem(u,v,w,h,k,l,t,m,n));
+
+	}
+
+	return slipsystems;
+
+}

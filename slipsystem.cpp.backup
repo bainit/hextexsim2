@@ -1,0 +1,96 @@
+#include <string>
+#include <cmath>
+
+#include <gsl/gsl_matrix.h>
+#include <gsl/gsl_blas.h>
+#include <gsl/gsl_linalg.h>
+
+#include "includes/vpsc_model_main.h"
+
+using namespace std;
+
+SlipSystem::SlipSystem(initializer_list<double> plane, initializer_list<double> direction, double t, double mm, string ll) : slip_plane{plane,Vector::Orientation::vertical}, slip_direction{direction}, tau_0{t}, m{mm}, label{ll} {
+
+	slip_plane.normalize();
+	slip_direction.normalize();
+
+	deformation_matrix = slip_plane*slip_direction;
+
+	Matrix def_matrix_transpose = deformation_matrix.give_transpose();
+
+	symetry_def_mat = 0.5*(deformation_matrix+def_matrix_transpose);
+	asymetry_def_mat = 0.5*(deformation_matrix-def_matrix_transpose);	
+
+	/*
+	double dsp = sqrt(h*h + v*v + l*l);
+	
+	double dsd = sqrt(u*u + v*v + w*w);
+
+	slip_plane = ;
+	slip_direction = gsl_matrix_alloc(3,1);
+
+	gsl_matrix_set(slip_direction,0,0,h/dsp);
+	gsl_matrix_set(slip_direction,1,0,k/dsp);
+	gsl_matrix_set(slip_direction,2,0,l/dsp);
+
+	gsl_matrix_set(slip_plane,0,0,u/dsd);
+	gsl_matrix_set(slip_plane,0,1,v/dsd);
+	gsl_matrix_set(slip_plane,0,2,w/dsd);
+
+	deformation_matrix = gsl_matrix_alloc(3,3);
+	symetry_def_mat = gsl_matrix_alloc(3,3);
+	asymetry_def_mat = gsl_matrix_alloc(3,3);
+
+	gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, slip_direction, slip_plane, 0.0, deformation_matrix);
+	
+	double mij = 0;
+	double mji = 0;
+
+	for(int i=0;i<3;i++) {
+		for(int j=0;j<3;j++) {
+			mij = gsl_matrix_get(deformation_matrix,i,j);
+			mji = gsl_matrix_get(deformation_matrix,j,i);
+
+			gsl_matrix_set(symetry_def_mat,i,j,0.5*(mij+mji));
+			gsl_matrix_set(asymetry_def_mat,i,j,0.5*(mij-mji));
+		}		
+	}
+	*/
+}
+
+SlipSystem::SlipSystem(Vector& plane, Vector& dir, double tau, double mm, string l) : slip_plane{plane}, slip_direction{dir}, tau_0{tau}, m{mm}, label{l} {}
+
+/*
+gsl_matrix* SlipSystem::get_slip_plane() const {
+
+	return slip_plane;
+
+}
+
+gsl_matrix* SlipSystem::get_slip_dir() const {
+
+	return slip_direction;
+
+}
+
+gsl_matrix* SlipSystem::get_def_mat() const {
+
+	return deformation_matrix;
+
+}
+
+gsl_matrix* SlipSystem::get_sym() const {
+
+	return symetry_def_mat;
+
+}
+
+gsl_matrix* SlipSystem::get_asym() const {
+
+	return asymetry_def_mat;
+
+}
+*/
+SlipSystem::~SlipSystem() {
+
+}

@@ -1,0 +1,1 @@
+g++ --std=c++11 -g ./build/* simulations_4.cpp -o simulations -lgsl -lm -lgslcblas -fopenmp

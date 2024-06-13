@@ -1,0 +1,27 @@
+CC := g++
+CFLAGS := --std=c++11 -g
+
+MPIFLAGS := nompi
+
+TARGET := simulations
+TARGETFLAGS := -lgsl -lm -lgslcblas -fopenmp
+
+SRC := $(wildcard *.cpp)
+OBJ := $(patsubst %.cpp,%.o,$(SRC))
+
+all: $(TARGET)
+
+mpi:
+	$(MAKE) all CC=mpicxx MPIFLAGS=MPI_ENABLED
+	
+$(TARGET) : $(OBJ)
+	$(CC) -o $@ $^ $(TARGETFLAGS) -D$(MPIFLAGS) 
+
+%.o : %.cpp
+	$(CC) $(CFLAGS) -c $< -D$(MPIFLAGS)
+
+clean:
+	rm -rf *.o
+
+.PHONY: all clean mpi
+

@@ -1,0 +1,13 @@
+#!/bin/bash
+
+rm build/*
+
+g++ --std=c++11 -g -c matrix.cpp -o build/matrix.o
+g++ --std=c++11 -g -c vector.cpp -o build/vector.o
+g++ --std=c++11 -g -c grain.cpp -o build/grain.o
+g++ --std=c++11 -g -c util.cpp -o build/util.o
+g++ --std=c++11 -g -c slipsystem.cpp -o build/slipsystem.o
+g++ --std=c++11 -g -c settings.cpp -o build/settings.o
+g++ --std=c++11 -g -c core.cpp -o build/core.o
+g++ --std=c++11 -g -c slipsystemsmanager.cpp -o build/slipsystemsmanager.o
+g++ --std=c++11 -g -c results.cpp -o build/results.o

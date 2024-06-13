@@ -1,0 +1,138 @@
+#include <utility>
+#include <vector>
+#include <fstream>
+#include <sstream>
+#include <string>
+
+#include <gsl/gsl_matrix.h>
+
+#include "includes/vpsc_classes.h"
+
+using namespace std;
+
+Settings* Settings::instance = NULL;
+
+Settings::Settings(double ds, int md, double e, double sr, double def[9]) : def_step{ds}, max_def{md}, epsilon{e}, strain_rate{sr} {
+
+	I = gsl_matrix_calloc(3,3);
+
+	gsl_matrix_set(I,0,0,1);
+	gsl_matrix_set(I,1,1,1);
+	gsl_matrix_set(I,2,2,1);
+
+	gsl_matrix_view dfv = gsl_matrix_view_array(def,3,3);
+
+	def_mat = gsl_matrix_calloc(3,3);
+
+	gsl_matrix_memcpy(def_mat,&(dfv.matrix));
+
+}
+
+void Settings::create_settings(double ds, int md, double e, double sr, double def[9]) {
+
+	if(instance == NULL) {
+		instance = new Settings{ds,md,e,sr,def};
+	}
+
+}
+
+void Settings::load_and_create_settings(string pathname) {
+
+        printf("Loading settings from %s\n", pathname.c_str());
+
+        ifstream input_file;
+        input_file.open(pathname);
+        if(!input_file.is_open()) {
+                printf("Error during openeing settings file: %s\n", pathname.c_str());
+                exit(-1);
+
+        }
+
+        string line;
+        double def_step, epsilon, strain_rate;
+        int max_def;
+
+        getline(input_file,line);
+        istringstream input_data(line);
+
+        input_data>>def_step;
+        input_data>>max_def;
+        input_data>>epsilon;
+        input_data>>strain_rate;
+
+        double def[9];
+
+        getline(input_file,line);
+        istringstream input_data2(line);
+
+        for(int i=0;i<9;i++) {
+                input_data2>>def[i];
+        }
+
+        Settings::create_settings(def_step, max_def, epsilon, strain_rate, def);
+}
+
+Settings* Settings::get_instance() {
+
+	return instance;
+
+}
+
+Settings& Settings::get_ref_inst() {
+
+	return *instance;
+
+}
+
+double Settings::get_def_step() const {
+
+	return def_step;
+
+}
+
+int Settings::get_max_def() const {
+
+	return max_def;	
+
+}
+
+double Settings::get_epsilon() const {
+
+	return epsilon;
+
+}
+
+double Settings::get_strain_rate() const {
+
+	return strain_rate;
+
+}
+
+gsl_matrix* const Settings::get_identity() const {
+
+	return I;
+
+}
+
+gsl_matrix* Settings::get_def() {
+
+	return def_mat;
+
+}
+
+Settings::~Settings() {
+
+
+	if(instance!=NULL){
+		delete instance;
+	}
+
+	if(I!=NULL) {
+		gsl_matrix_free(I);
+	}
+
+	if(def_mat!=NULL) {
+		gsl_matrix_free(def_mat);
+	}
+
+}
